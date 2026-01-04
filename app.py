@@ -1,59 +1,96 @@
 import streamlit as st
-from PIL import Image
+import pandas as pd
+import os
 
-from src.data_loader import load_dataset, apply_filters
-from src.recommender import get_recommendations
-from src.utils import get_image_path
-
-st.set_page_config(page_title="AI Fashion Recommender", layout="wide")
+# ----------------------------
+# PAGE CONFIG
+# ----------------------------
+st.set_page_config(
+    page_title="AI-Powered Fashion Recommendation System",
+    layout="wide"
+)
 
 st.title("AI-Powered Fashion Recommendation System")
 
-# Load data
-df = load_dataset()
+# ----------------------------
+# ENVIRONMENT DETECTION
+# ----------------------------
+IS_CLOUD = not os.path.exists("data/images")
+IMAGE_DIR = "data/sample_images" if IS_CLOUD else "data/images"
 
-# Sidebar filters
+# ----------------------------
+# LOAD DATA (SAFE CSV)
+# ----------------------------
+@st.cache_data
+def load_data():
+    df = pd.read_csv(
+        "data/styles.csv",
+        engine="python",
+        on_bad_lines="skip"
+    )
+
+    df["baseColour"] = df["baseColour"].astype(str).str.strip().str.lower()
+    df["season"] = df["season"].astype(str).str.strip().str.lower()
+    df["usage"] = df["usage"].astype(str).str.strip().str.lower()
+    df["articleType"] = df["articleType"].astype(str).str.strip()
+
+    return df
+
+df = load_data()
+
+# ----------------------------
+# SIDEBAR FILTERS
+# ----------------------------
 st.sidebar.header("Preferences")
 
-color = st.sidebar.selectbox(
-    "Color",
-    ["All"] + sorted(df["baseColour"].dropna().unique().tolist())
+color = st.sidebar.selectbox("Color", sorted(df["baseColour"].unique()))
+season = st.sidebar.selectbox("Season", sorted(df["season"].unique()))
+usage = st.sidebar.selectbox("Usage", sorted(df["usage"].unique()))
+
+# ----------------------------
+# IMAGE UPLOAD
+# ----------------------------
+uploaded_image = st.file_uploader(
+    "Upload a clothing image (optional)",
+    type=["jpg", "png", "jpeg"]
 )
 
-season = st.sidebar.selectbox(
-    "Season",
-    ["All"] + sorted(df["season"].dropna().unique().tolist())
-)
+if uploaded_image:
+    st.image(uploaded_image, caption="Uploaded Item", width=250)
 
-usage = st.sidebar.selectbox(
-    "Usage",
-    ["All"] + sorted(df["usage"].dropna().unique().tolist())
-)
+# ----------------------------
+# FILTER DATA
+# ----------------------------
+filtered_df = df[
+    df["baseColour"].str.contains(color, na=False) &
+    df["season"].str.contains(season, na=False) &
+    df["usage"].str.contains(usage, na=False)
+]
 
-filtered_df = apply_filters(df, color, season, usage)
+if filtered_df.empty:
+    st.warning("No exact matches found. Showing random similar items.")
+    filtered_df = df.sample(6, random_state=42)
 
-# Image upload
-uploaded = st.file_uploader("Upload a clothing image (optional)", type=["jpg", "png"])
-if uploaded:
-    img = Image.open(uploaded)
-    st.image(img, caption="Uploaded Item", width=250)
-
-# Recommendations
+# ----------------------------
+# DISPLAY RESULTS WITH IMAGES
+# ----------------------------
 st.subheader("Recommended Items")
 
-recs = get_recommendations(filtered_df)
+cols = st.columns(3)
 
-if len(recs) == 0:
-    st.warning("No items found for selected filters.")
-else:
-    cols = st.columns(3)
-    for idx, (_, row) in enumerate(recs.iterrows()):
-        col = cols[idx % 3]
-        img_path = get_image_path(row["id"])
+for idx, (_, row) in enumerate(filtered_df.head(6).iterrows()):
+    with cols[idx % 3]:
 
-        if img_path:
-            col.image(img_path, width=200)
-            col.markdown(f"**{row['articleType']}**")
-            col.write(f"Color: {row['baseColour']}")
-            col.write(f"Season: {row['season']}")
-            col.write(f"Usage: {row['usage']}")
+        img_path = os.path.join(IMAGE_DIR, f"{row['id']}.jpg")
+
+        if os.path.exists(img_path):
+            st.image(img_path, use_column_width=True)
+        else:
+            st.info("Image not available in demo")
+
+        st.markdown(f"""
+        **Article Type:** {row['articleType']}  
+        **Color:** {row['baseColour'].title()}  
+        **Season:** {row['season'].title()}  
+        **Usage:** {row['usage'].title()}
+        """)
