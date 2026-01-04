@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import random
+from pathlib import Path
 
 # -------------------------------------------------
 # PAGE CONFIG
@@ -14,16 +15,17 @@ st.set_page_config(
 st.title("AI-Powered Fashion Recommendation System")
 
 # -------------------------------------------------
-# PATHS
+# BASE PATH (CRITICAL FIX)
 # -------------------------------------------------
-IMAGE_DIR = "assets/sample_images"
+BASE_DIR = Path(__file__).resolve().parent
+IMAGE_DIR = BASE_DIR / "assets" / "sample_images"
 
-# Load available demo images
+# Load available demo images (cloud-safe)
 SAMPLE_IMAGES = []
-if os.path.exists(IMAGE_DIR):
+if IMAGE_DIR.exists():
     SAMPLE_IMAGES = [
-        img for img in os.listdir(IMAGE_DIR)
-        if img.lower().endswith(".jpg")
+        img.name for img in IMAGE_DIR.iterdir()
+        if img.suffix.lower() == ".jpg"
     ]
 
 # -------------------------------------------------
@@ -32,12 +34,11 @@ if os.path.exists(IMAGE_DIR):
 @st.cache_data
 def load_data():
     df = pd.read_csv(
-        "data/styles.csv",
+        BASE_DIR / "data" / "styles.csv",
         engine="python",
         on_bad_lines="skip"
     )
 
-    # Normalize text columns
     for col in ["baseColour", "season", "usage", "articleType"]:
         df[col] = df[col].astype(str).str.strip().str.lower()
 
@@ -50,18 +51,12 @@ df = load_data()
 # -------------------------------------------------
 st.sidebar.header("Preferences")
 
-color = st.sidebar.selectbox(
-    "Color", sorted(df["baseColour"].unique())
-)
-season = st.sidebar.selectbox(
-    "Season", sorted(df["season"].unique())
-)
-usage = st.sidebar.selectbox(
-    "Usage", sorted(df["usage"].unique())
-)
+color = st.sidebar.selectbox("Color", sorted(df["baseColour"].unique()))
+season = st.sidebar.selectbox("Season", sorted(df["season"].unique()))
+usage = st.sidebar.selectbox("Usage", sorted(df["usage"].unique()))
 
 # -------------------------------------------------
-# IMAGE UPLOAD (OPTIONAL)
+# OPTIONAL IMAGE UPLOAD
 # -------------------------------------------------
 uploaded_image = st.file_uploader(
     "Upload a clothing image (optional)",
@@ -75,12 +70,11 @@ if uploaded_image:
 # FILTER DATA
 # -------------------------------------------------
 filtered_df = df[
-    df["baseColour"].str.contains(color, na=False) &
-    df["season"].str.contains(season, na=False) &
-    df["usage"].str.contains(usage, na=False)
+    (df["baseColour"] == color) &
+    (df["season"] == season) &
+    (df["usage"] == usage)
 ]
 
-# Fallback if no matches
 if filtered_df.empty:
     st.warning("No exact matches found. Showing similar items instead.")
     filtered_df = df.sample(6, random_state=42)
@@ -89,26 +83,25 @@ if filtered_df.empty:
 # DISPLAY RECOMMENDATIONS
 # -------------------------------------------------
 st.subheader("Recommended Items")
-
 cols = st.columns(3)
 
 for idx, (_, row) in enumerate(filtered_df.head(6).iterrows()):
     with cols[idx % 3]:
 
-        # Try exact image by ID
-        img_path = os.path.join(IMAGE_DIR, f"{row['id']}.jpg")
+        exact_image = IMAGE_DIR / f"{row['id']}.jpg"
 
-        if os.path.exists(img_path):
-            st.image(img_path, use_column_width=True)
+        # 1️⃣ Exact image if exists
+        if exact_image.exists():
+            st.image(str(exact_image), use_column_width=True)
 
-        # Fallback to random demo image
+        # 2️⃣ Fallback demo image
         elif SAMPLE_IMAGES:
-            fallback_img = random.choice(SAMPLE_IMAGES)
-            fallback_path = os.path.join(IMAGE_DIR, fallback_img)
-            st.image(fallback_path, use_column_width=True)
+            fallback = IMAGE_DIR / random.choice(SAMPLE_IMAGES)
+            st.image(str(fallback), use_column_width=True)
 
+        # 3️⃣ Absolute fallback
         else:
-            st.info("Image not available")
+            st.warning("No demo images available")
 
         st.markdown(
             f"""
