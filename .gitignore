@@ -1,0 +1,11 @@
+# Ignore large ML files
+embeddings/
+data/images/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env
