@@ -16,7 +16,7 @@ st.title("AI-Powered Fashion Recommendation System")
 # ENVIRONMENT DETECTION
 # ----------------------------
 IS_CLOUD = not os.path.exists("data/images")
-IMAGE_DIR = "data/sample_images" if IS_CLOUD else "data/images"
+IMAGE_DIR = "assets/sample_images" if IS_CLOUD else "data/images"
 
 # ----------------------------
 # LOAD DATA (SAFE CSV)
