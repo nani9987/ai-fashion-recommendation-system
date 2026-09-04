@@ -17,7 +17,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🎀 AI-Powered Fashion Recommendation System")
+st.title("AI-Powered Fashion Recommendation System")
 st.write("Upload a clothing image or browse by filters to get AI-powered visual recommendations!")
 
 # -------------------------------------------------
@@ -35,11 +35,11 @@ def load_embeddings():
     try:
         embeddings = np.load(EMBEDDINGS_DIR / "image_embeddings.npy")
         image_ids = np.load(EMBEDDINGS_DIR / "image_ids.npy")
-        st.success("✅ Embeddings loaded successfully!")
+        st.success("Embeddings loaded successfully!")
         return embeddings, image_ids
     except FileNotFoundError:
-        st.error(f"❌ Embeddings not found at {EMBEDDINGS_DIR}")
-        st.info("Run this command to generate embeddings:\n```\npython -m src.build_embeddings\n```")
+        st.error(f"Embeddings not found at {EMBEDDINGS_DIR}")
+        st.info("Run this command to generate embeddings:\npython -m src.build_embeddings")
         return None, None
 
 df = load_data()
@@ -51,7 +51,7 @@ if embeddings is None:
 # -------------------------------------------------
 # SIDEBAR CONTROLS
 # -------------------------------------------------
-st.sidebar.header("🔍 Search Options")
+st.sidebar.header("Search Options")
 
 use_image = st.sidebar.radio("Search by:", ["Image Upload", "Filters"])
 
@@ -63,8 +63,8 @@ num_recommendations = st.sidebar.slider("Number of items", min_value=3, max_valu
 
 st.sidebar.markdown("---")
 st.sidebar.info(
-    "💡 **Image Upload:** Uses CNN feature extraction for visual similarity\n"
-    "**Filters:** Metadata-based search (color, season, usage)"
+    "Image Upload: Uses CNN feature extraction for visual similarity\n"
+    "Filters: Metadata-based search (color, season, usage)"
 )
 
 # -------------------------------------------------
@@ -74,7 +74,7 @@ query_embedding = None
 recommendations = None
 
 if use_image == "Image Upload":
-    st.subheader("📷 Upload Your Item")
+    st.subheader("Upload Your Item")
     uploaded_image = st.file_uploader(
         "Choose a clothing image",
         type=["jpg", "png", "jpeg"]
@@ -89,31 +89,28 @@ if use_image == "Image Upload":
         with col2:
             st.write("**Extracting features...**")
             try:
-                # Save temporarily to /tmp
                 temp_path = Path("/tmp") / uploaded_image.name
                 with open(temp_path, "wb") as f:
                     f.write(uploaded_image.getbuffer())
                 
-                # Extract features
                 query_embedding = extract_features(str(temp_path))
                 
                 if query_embedding is not None:
-                    st.success("✅ Features extracted successfully!")
+                    st.success("Features extracted successfully!")
                     st.metric("Feature Vector Dim", "2048-D ResNet50")
                 else:
-                    st.error("❌ Could not process image")
+                    st.error("Could not process image")
             except Exception as e:
-                st.error(f"❌ Error processing image: {e}")
+                st.error(f"Error processing image: {e}")
 else:
-    st.subheader("🎨 Browse by Filters")
+    st.subheader("Browse by Filters")
 
 # -------------------------------------------------
 # GET RECOMMENDATIONS
 # -------------------------------------------------
-st.subheader("🎯 Recommended Items")
+st.subheader("Recommended Items")
 
 if use_image == "Image Upload" and query_embedding is not None:
-    # CNN-based recommendations
     st.write("**Similar items based on visual features (CNN + Cosine Similarity):**")
     recommendations = get_recommendations(
         query_embedding, 
@@ -123,7 +120,6 @@ if use_image == "Image Upload" and query_embedding is not None:
         n=num_recommendations
     )
 else:
-    # Metadata-based filtering
     recommendations = df.copy()
     
     if color != "All":
@@ -134,7 +130,7 @@ else:
         recommendations = recommendations[recommendations["usage"] == usage.lower()]
     
     if recommendations.empty:
-        st.warning("⚠️ No exact matches found. Showing random items instead.")
+        st.warning("No exact matches found. Showing random items instead.")
         recommendations = df.sample(min(num_recommendations, len(df)), random_state=42)
     else:
         st.write(f"**Found {len(recommendations)} matching items. Showing top {num_recommendations}:**")
@@ -148,13 +144,12 @@ if not recommendations.empty:
     
     for idx, (_, row) in enumerate(recommendations.iterrows()):
         with cols[idx % 3]:
-            # Try to load image
             img_path = IMAGE_DIR / f"{row['id']}.jpg"
             
             if img_path.exists():
                 st.image(str(img_path), use_column_width=True)
             else:
-                st.info(f"📷 Image ID: {row['id']}")
+                st.info(f"Image ID: {row['id']}")
             
             st.markdown(
                 f"""
@@ -177,8 +172,8 @@ else:
 st.divider()
 st.markdown(
     """
-    ### 🤖 How This Works
-    - **Image Upload:** Uses ResNet50 CNN to extract 2048-D feature vectors → Computes cosine similarity → Returns top-N similar items
+    ### How This Works
+    - **Image Upload:** Uses ResNet50 CNN to extract 2048-D feature vectors -> Computes cosine similarity -> Returns top-N similar items
     - **Filters:** Metadata-based search using color, season, and usage attributes
     - **Response Time:** ~500ms-1s per request (depending on CPU/GPU)
     
